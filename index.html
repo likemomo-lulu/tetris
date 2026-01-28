@@ -22,7 +22,7 @@
             justify-content: center;
             padding: 10px;
             touch-action: none;
-            overflow: hidden;
+            overflow-y: auto; /* 允许垂直滚动 */
         }
 
         .game-container {
@@ -40,41 +40,39 @@
         }
 
         .game-header h1 {
-            font-size: 24px;
+            font-size: 20px;
             color: #667eea;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
 
         .stats {
             display: flex;
             justify-content: space-around;
-            gap: 10px;
+            gap: 8px;
         }
 
         .stat-box {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            padding: 10px 15px;
-            border-radius: 12px;
             text-align: center;
             flex: 1;
+            padding: 4px 8px;
         }
 
         .stat-box .label {
-            font-size: 12px;
-            opacity: 0.9;
+            font-size: 11px;
+            color: #636e72;
         }
 
         .stat-box .value {
-            font-size: 20px;
+            font-size: 16px;
             font-weight: bold;
-            margin-top: 5px;
+            color: #667eea;
         }
 
         .game-area {
             display: flex;
-            gap: 15px;
+            gap: 10px;
             margin-top: 15px;
+            align-items: flex-start; /* 顶部对齐 */
         }
 
         .canvas-wrapper {
@@ -92,29 +90,15 @@
             max-width: 100%;
         }
 
-        .side-panel {
+        .next-canvas-wrapper {
             display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .next-piece {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 12px;
-            text-align: center;
-            border: 2px solid #FFD93D;
-        }
-
-        .next-piece h3 {
-            font-size: 14px;
-            color: #667eea;
-            margin-bottom: 10px;
+            align-items: flex-start;
         }
 
         #nextCanvas {
             border-radius: 8px;
             background: #2d3436;
+            border: 2px solid #FFD93D;
         }
 
         .controls {
@@ -124,13 +108,20 @@
             margin-top: 15px;
         }
 
+        .controls-row {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
         .btn {
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
             border: none;
-            padding: 15px;
-            border-radius: 12px;
-            font-size: 24px;
+            padding: 10px;
+            border-radius: 10px;
+            font-size: 20px;
             cursor: pointer;
             transition: transform 0.1s, box-shadow 0.1s;
             box-shadow: 0 4px 10px rgba(102, 126, 234, 0.4);
@@ -143,10 +134,9 @@
             box-shadow: 0 2px 5px rgba(102, 126, 234, 0.4);
         }
 
-        .btn-large {
-            grid-column: span 3;
-            font-size: 16px;
-            padding: 12px;
+        .btn-half {
+            font-size: 14px;
+            padding: 10px;
         }
 
         .btn-left {
@@ -233,7 +223,7 @@
 <body>
     <div class="game-container">
         <div class="game-header">
-            <h1>🍬 糖果俄罗斯方块</h1>
+            <h1>🍬 俄罗斯方块 🍬</h1>
             <div class="stats">
                 <div class="stat-box">
                     <div class="label">分数</div>
@@ -252,14 +242,11 @@
 
         <div class="game-area">
             <div class="canvas-wrapper">
-                <canvas id="gameCanvas" width="240" height="400"></canvas>
+                <canvas id="gameCanvas" width="320" height="640"></canvas>
                 <div class="pause-overlay" id="pauseOverlay">暂停中</div>
             </div>
-            <div class="side-panel">
-                <div class="next-piece">
-                    <h3>下一个</h3>
-                    <canvas id="nextCanvas" width="100" height="100"></canvas>
-                </div>
+            <div class="next-canvas-wrapper">
+                <canvas id="nextCanvas" width="64" height="64"></canvas>
             </div>
         </div>
 
@@ -267,8 +254,10 @@
             <button class="btn btn-left" id="btnLeft">◀</button>
             <button class="btn btn-rotate" id="btnRotate">旋转</button>
             <button class="btn btn-right" id="btnRight">▶</button>
-            <button class="btn btn-large" id="btnDown">加速下落</button>
-            <button class="btn btn-large" id="btnPause">暂停</button>
+            <div class="controls-row">
+                <button class="btn btn-half" id="btnDown">加速下落</button>
+                <button class="btn btn-half" id="btnPause">暂停</button>
+            </div>
         </div>
     </div>
 
@@ -284,7 +273,7 @@
         // ==================== 配置 ====================
         const COLS = 10;
         const ROWS = 20;
-        const BLOCK_SIZE = 24;
+        const BLOCK_SIZE = 32; // 进一步增大方块尺寸
         const COLORS = {
             I: '#FF6B9D', // 粉色
             O: '#4ECDC4', // 青色
@@ -356,6 +345,7 @@
         let isPaused = false;
         let isGameOver = false;
         let clearingLines = []; // 正在消除的行
+        let gameInitialized = false; // 游戏循环初始化标志
 
         // Canvas 上下文
         const canvas = document.getElementById('gameCanvas');
@@ -396,6 +386,7 @@
             isPaused = false;
             isGameOver = false;
             clearingLines = [];
+            gameInitialized = false; // 重置初始化标志
             updateStats();
             draw();
         }
@@ -436,7 +427,8 @@
                     if (shape[y][x]) {
                         const boardY = currentPiece.y + y;
                         const boardX = currentPiece.x + x;
-                        if (boardY >= 0) {
+                        // 只在合法的棋盘范围内合并
+                        if (boardY >= 0 && boardY < ROWS && boardX >= 0 && boardX < COLS) {
                             board[boardY][boardX] = currentPiece.type;
                         }
                     }
@@ -488,10 +480,12 @@
         }
 
         function dropPiece() {
+            // 检查是否可以下落
             if (isValidMove(currentPiece, 0, 1)) {
+                // 直接下落1格（isValidMove已经检查了边界）
                 currentPiece.y++;
             } else {
-                // 方块着地
+                // 方块真正着地
                 mergePiece();
                 clearLines();
 
@@ -525,21 +519,47 @@
             }
         }
 
+        // 瞬间掉落到底部（硬降）
         function hardDrop() {
-            while (isValidMove(currentPiece, 0, 1)) {
-                currentPiece.y++;
-                score += 2; // 加速下落奖励
+            // 计算能下落多少格
+            let dropDistance = 0;
+            while (isValidMove(currentPiece, 0, dropDistance + 1)) {
+                dropDistance++;
             }
-            dropPiece();
+
+            // 直接移到底部并加分（isValidMove已经保证了不会超出边界）
+            if (dropDistance > 0) {
+                currentPiece.y += dropDistance;
+                score += dropDistance * 2; // 每落一格得2分
+            }
+
+            // 方块着地：合并到棋盘
+            mergePiece();
+
+            // 检查并消除满行
+            clearLines();
+
+            // 生成新方块
+            currentPiece = nextPiece;
+            nextPiece = randomPiece();
+
+            // 检查游戏结束
+            if (!isValidMove(currentPiece)) {
+                gameOver();
+            }
+
             updateStats();
         }
 
         // ==================== Ghost方块计算 ====================
         function getGhostY() {
             let ghostY = currentPiece.y;
-            while (isValidMove(currentPiece, 0, ghostY - currentPiece.y + 1)) {
+            // 不断尝试下落，直到触碰底部或碰到障碍
+            // 创建临时方块对象，使用 ghostY 作为 y 坐标
+            while (isValidMove({...currentPiece, y: ghostY}, 0, 1)) {
                 ghostY++;
             }
+            // ghostY 就是最后一个合法位置
             return ghostY;
         }
 
@@ -667,19 +687,40 @@
 
             if (!nextPiece) return;
 
+            // 计算预览区域的方块尺寸（适配75x75的Canvas）
+            const nextBlockSize = Math.floor(nextCanvas.width / 4); // 75/4 = 18
             const shape = SHAPES[nextPiece.type][0];
-            const offsetX = (nextCanvas.width / BLOCK_SIZE - shape[0].length) / 2;
-            const offsetY = (nextCanvas.height / BLOCK_SIZE - shape.length) / 2;
+            const offsetX = (nextCanvas.width / nextBlockSize - shape[0].length) / 2;
+            const offsetY = (nextCanvas.height / nextBlockSize - shape.length) / 2;
 
             for (let y = 0; y < shape.length; y++) {
                 for (let x = 0; x < shape[y].length; x++) {
                     if (shape[y][x]) {
-                        drawBlock(
-                            nextCtx,
-                            x + offsetX,
-                            y + offsetY,
-                            COLORS[nextPiece.type]
+                        // 使用自定义方块尺寸绘制
+                        const size = nextBlockSize;
+                        const drawX = Math.floor((x + offsetX) * size);
+                        const drawY = Math.floor((y + offsetY) * size);
+                        const color = COLORS[nextPiece.type];
+
+                        // 糖果风格渐变
+                        const gradient = nextCtx.createLinearGradient(
+                            drawX, drawY,
+                            drawX + size, drawY + size
                         );
+                        gradient.addColorStop(0, color);
+                        gradient.addColorStop(1, shadeColor(color, -20));
+
+                        nextCtx.fillStyle = gradient;
+                        nextCtx.fillRect(drawX + 1, drawY + 1, size - 2, size - 2);
+
+                        // 高光
+                        nextCtx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                        nextCtx.fillRect(drawX + 3, drawY + 3, size / 2 - 4, size / 2 - 4);
+
+                        // 边框
+                        nextCtx.strokeStyle = shadeColor(color, -30);
+                        nextCtx.lineWidth = 1;
+                        nextCtx.strokeRect(drawX + 1, drawY + 1, size - 2, size - 2);
                     }
                 }
             }
@@ -710,10 +751,11 @@
 
             isPaused = !isPaused;
             document.getElementById('pauseOverlay').style.display = isPaused ? 'block' : 'none';
-            document.getElementById('btnPause').textContent = isPaused ? '▶️ 继续' : '⏸️ 暂停';
+            document.getElementById('btnPause').textContent = isPaused ? '继续' : '暂停';
 
             if (!isPaused) {
-                lastDrop = Date.now();
+                // 暂停结束后，重新初始化时间戳（避免累积时间差）
+                lastDrop = performance.now();
             }
         }
 
@@ -725,7 +767,15 @@
 
             if (isPaused) return;
 
-            // 自动下落
+            // 第一次循环：初始化时间戳，不触发自动下落
+            if (!gameInitialized) {
+                lastDrop = timestamp;
+                gameInitialized = true;
+                draw();
+                return;
+            }
+
+            // 自动下落（使用统一的时间戳）
             if (timestamp - lastDrop > dropInterval) {
                 dropPiece();
                 lastDrop = timestamp;
@@ -841,7 +891,7 @@
         document.getElementById('restartBtn').addEventListener('click', () => {
             document.getElementById('gameOver').style.display = 'none';
             init();
-            lastDrop = Date.now();
+            lastDrop = performance.now(); // 统一使用 performance.now()
             requestAnimationFrame(update);
         });
 
@@ -852,7 +902,7 @@
 
         // ==================== 启动游戏 ====================
         init();
-        lastDrop = Date.now();
+        lastDrop = performance.now(); // 用当前时间戳初始化，避免第一次瞬间下落
         requestAnimationFrame(update);
     </script>
 </body>
