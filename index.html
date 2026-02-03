@@ -264,7 +264,7 @@
 
         <div class="game-area">
             <div class="canvas-wrapper">
-                <canvas id="gameCanvas" width="320" height="640"></canvas>
+                <canvas id="gameCanvas" width="200" height="400"></canvas>
                 <div class="pause-overlay" id="pauseOverlay">暂停中</div>
             </div>
             <div class="right-panel">
@@ -298,7 +298,7 @@
         // ==================== 配置 ====================
         const COLS = 10;
         const ROWS = 20;
-        const BLOCK_SIZE = 32; // 进一步增大方块尺寸
+        const BLOCK_SIZE = 20; // 缩小方块尺寸
         const COLORS = {
             I: '#FF6B9D', // 粉色
             O: '#4ECDC4', // 青色
@@ -307,7 +307,6 @@
             Z: '#F38181', // 珊瑚红
             J: '#AA96DA', // 淡紫色
             L: '#FCBAD3', // 浅粉色
-            ghost: 'rgba(255, 255, 255, 0.3)', // Ghost方块颜色
             board: '#2d3436'  // 棋盘背景
         };
 
@@ -674,22 +673,6 @@
             if (!currentPiece) return;
 
             const shape = SHAPES[currentPiece.type][currentPiece.rotation];
-
-            // 绘制Ghost方块
-            const ghostY = getGhostY();
-            for (let y = 0; y < shape.length; y++) {
-                for (let x = 0; x < shape[y].length; x++) {
-                    if (shape[y][x]) {
-                        drawBlock(
-                            ctx,
-                            currentPiece.x + x,
-                            ghostY + y,
-                            COLORS.ghost,
-                            true
-                        );
-                    }
-                }
-            }
 
             // 绘制当前方块
             for (let y = 0; y < shape.length; y++) {
